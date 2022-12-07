@@ -33,6 +33,38 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+model = ColorizationNet()
+pretrained = torch.load('model/model-epoch-29-losses-0.009.pth', map_location=torch.device('cpu'))
+model.load_state_dict(pretrained)
+model.eval()
+
+def transform_image(image_bytes):
+    my_transforms = transforms.Compose([transforms.Resize(256),
+                                        transforms.CenterCrop(224)])
+    image = Image.open(io.BytesIO(image_bytes))
+    image = my_transforms(image)
+    img_original = np.asarray(image)
+    img_original = rgb2gray(img_original)
+    img_original = torch.from_numpy(img_original).unsqueeze(0).float()
+    return img_original
+
+def recover_image(grayscale_input, ab_input, save_path=None, save_name=None):
+    #plt.clf() # clear matplotlib
+    # revover image use greyscale image + predicted image in ab space
+    color_image = torch.cat((grayscale_input, ab_input), 0).numpy() # combine channels
+    color_image = color_image.transpose((1, 2, 0))  # rescale for matplotlib
+    color_image[:, :, 0:1] = color_image[:, :, 0:1] * 100
+    color_image[:, :, 1:3] = color_image[:, :, 1:3] * 255 - 128
+    color_image = lab2rgb(color_image.astype(np.float64))
+    return color_image
+
+def get_prediction(image_bytes):
+    input_greyscale = transform_image(image_bytes=image_bytes)
+    input_greyscale = input_greyscale.unsqueeze(0)
+    output_ab = model(input_greyscale)
+    print(output_ab.shape, input_greyscale.shape)
+    return recover_image(input_greyscale[0].cpu(), output_ab[0].detach().cpu())
+
 @app.route('/')
 def login():
     return render_template('login.html')
