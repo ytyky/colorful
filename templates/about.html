@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <title>About Image Colorization</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/css/bootstrap.min.css">
+    <script src="https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js"></script>
+    <script src="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</head>
+<body>
+  {% extends "template.html" %}
+  {% block content %}
+
+  <div class="container">
+    <div class="jumbotron">
+      <h1> About this web app </h1>
+      <p>This project built and trained a CNN model to recover greyscale images
+        to colored images
+       </p>
+    </div>
+    <div class="row">
+      <div class="col-sm-4">
+        <h2>model</h3>
+        <p>The model used resnet18 as backbone, trained on wandb flower datasets</p>
+        <p>It converts RGB images to LAB spaces, and trained only on L space</p>
+      </div>
+      <div class="col-sm-4">
+        <h2>datasets</h3>
+        <p>The datsets contains 4000+ sceneries</p>
+        <p>most of them are beautiful flowers</p>
+
+      </div>
+      <div class="col-sm-4">
+        <h2>deployment</h3>
+        <p>The model is deployed on heroku app</p>
+
+      </div>
+    </div>
+  </div>
+  {% endblock %}
+
+</body>
+</html>

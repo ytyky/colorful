@@ -1,8 +1,11 @@
 from flask import Flask, request, redirect, render_template
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
+import base64
 
 app = Flask(__name__)
+app.secret_key = base64.b64encode(os.urandom(24)).decode('utf-8')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 db = SQLAlchemy(app)
 
@@ -54,4 +57,7 @@ def handle_signup():
 
 @app.route('/home')
 def home():
-    return render_template('home.html')
+    return render_template('home.html')s
+
+if __name__ == "__main__":
+    app.run(debug=True)
