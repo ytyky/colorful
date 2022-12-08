@@ -191,5 +191,13 @@ def upload_file():
         return render_template('result.html')
     return render_template('image.html')
 
+@app.route("/gallery")
+def gallery():
+    images_url = []
+    for photo_info in mongodb.mongodb.photos.find():
+        if photo_info['username'] == session.get('username'):
+            images_url.append(photo_info['photo'])
+    return render_template("gallery.html", urls= images_url)
+
 if __name__ == "__main__":
     app.run(debug=True)
