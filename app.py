@@ -1,9 +1,10 @@
-from flask import Flask, request, redirect, render_template
+from flask import Flask, request, redirect, render_template, session, send_file
+from flask_session import Session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import base64
-
+from datetime import datetime
 import io
 import json
 
@@ -14,13 +15,29 @@ import torchvision.transforms as transforms
 from skimage.color import lab2rgb, rgb2lab, rgb2gray
 import numpy as np
 from PIL import Image
-from flask import Flask, render_template, send_file, request, redirect
+#from flask import Flask, render_template, send_file, request, redirect
 from model.model import ColorizationNet, GrayscaleImageFolder
 
+import mongodb
+from photoSave import s3
+
 app = Flask(__name__)
+
+# cookies
 app.secret_key = base64.b64encode(os.urandom(24)).decode('utf-8')
+
+# session
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
+Session(app)
+
+# sqlite server config
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 db = SQLAlchemy(app)
+
+# from app import app, db
+# app.app_context().push()
+# db.create_all()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -69,16 +86,20 @@ def get_prediction(image_bytes):
 def login():
     return render_template('login.html')
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['POST', "GET"])
 def handle_login():
-    username = request.form['username']
-    password = request.form['password']
+    if request.method == "POST":
+        username = request.form['username']
+        password = request.form['password']
 
-    user = User.query.filter_by(username=username).first()
-    if user is None or not user.check_password(password):
-        return redirect('/')
+        user = User.query.filter_by(username=username).first()
+        if user is None or not user.check_password(password):
+            return redirect('/')
 
-    return redirect('/home')
+        session['username'] = username
+
+        return redirect('/home')
+    return redirect('/')
 
 @app.route('/signup')
 def signup():
@@ -98,10 +119,21 @@ def handle_signup():
     db.session.add(user)
     db.session.commit()
 
+    # record the user name
+    session["username"] = username
+
     return redirect('/home')
+
+@app.route("/logout")
+def logout():
+    session["username"] = None
+    return redirect("/")
 
 @app.route('/home')
 def home():
+    if not session.get("username"):
+        # if not there in the session then redirect to the login page
+        return redirect("/login")
     return render_template('home.html')
 
 @app.route("/about")
@@ -132,6 +164,29 @@ def upload_file():
         img = get_prediction(image_bytes=img_bytes)
         img = Image.fromarray((img*255).astype('uint8'))
         img.save(os.path.join(app.root_path, 'static/result.jpg'))
+
+
+        if not session.get("username"):
+            # if not there in the session then redirect to the login page
+            return redirect("/login")
+        else:
+            # save image to s3 bucket
+
+            now = datetime.now()
+            # convert to string
+            date_time_str = now.strftime("%Y-%m-%d-%H-%M-%S")
+            file_name = session.get('username').split("@")[0] + date_time_str + '.jpeg'
+            out_img = io.BytesIO()
+            img.save(out_img, format='jpeg')
+            out_img.seek(0)
+            s3.upload_fileobj(out_img, 'coloful-education', file_name)
+            # save image url to mongodb
+            image = {
+                'photo': "https://coloful-education.s3.amazonaws.com/"+file_name,
+                'username': session.get('username')
+            }
+            mongodb.mongodb.photos.insert_one(image)
+
 
         return render_template('result.html')
     return render_template('image.html')
